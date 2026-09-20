@@ -20,6 +20,7 @@ import java.util.UUID;
 public class OutboxEvent {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 

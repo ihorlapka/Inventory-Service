@@ -1,6 +1,6 @@
 package com.electronics.store.inventory_service.messaging;
 
-import com.electronics.store.inventory_service.messaging.message.OrderCreatedData;
+import com.electronics.store.inventory_service.messaging.message.MessageEventIn;
 import com.electronics.store.inventory_service.processor.ReservationProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,13 +17,19 @@ public class RabbitMqConsumer {
 
     private final ReservationProcessor reservationProcessor;
 
-    @RabbitListener(queues = "#{@rabbitMqProperties.queue()}")
-    void onOrderCreated(OrderCreatedData event, @Header(value = AmqpHeaders.MESSAGE_ID, required = false) String messageId) {
+    @RabbitListener(id = "orders-created",
+            queues = "#{@rabbitMqProperties.getQueueName()}",
+            concurrency = "${app.rabbit.orders.concurrency:2-8}",
+            ackMode = "AUTO")
+    public void handleMessage(MessageEventIn event,
+                              @Header(value = AmqpHeaders.MESSAGE_ID) String messageId,
+                              @Header(value = AmqpHeaders.CORRELATION_ID) String correlationId,
+                              @Header(value = AmqpHeaders.TIMESTAMP) long sentTimestamp) {
         try {
-            log.info("Received OrderCreatedData: {}", event);
+            log.info("Received OrderCreatedData: {}, msgId: {}, correlationId: {}, sentTime: {}", event, messageId, correlationId, sentTimestamp);
             reservationProcessor.processOrderCreated(event);
-        } catch (Exception e) {
-            throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e);
+        } catch (NullPointerException | IllegalArgumentException | IllegalStateException | ArrayIndexOutOfBoundsException e) {
+            throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e); // straight to Dead Letter Queue
         }
     }
 }

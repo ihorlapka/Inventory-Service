@@ -19,6 +19,7 @@ import java.util.UUID;
 public class Reservation {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
