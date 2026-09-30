@@ -32,3 +32,6 @@ spring:
         order_updates: true
         generate_statistics: false
     open-in-view: false
+outbox:
+  timeout.after.failure.ms: 5000
+  events.batch.size: 100

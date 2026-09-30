@@ -9,8 +9,10 @@ import com.electronics.store.inventory_service.persistence.model.enums.Reservati
 import com.electronics.store.inventory_service.persistence.services.InventoryService;
 import com.electronics.store.inventory_service.persistence.services.OutboxEventService;
 import com.electronics.store.inventory_service.persistence.services.ReservationService;
+import com.electronics.store.outbox_event_publisher.PublishmentTriggerEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ public class ReservationProcessor {
     private final InventoryService inventoryService;
     private final ReservationService reservationService;
     private final OutboxEventService outboxEventService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void processOrderCreated(MessageEventIn event) {
@@ -55,7 +58,7 @@ public class ReservationProcessor {
         final Set<UnavailableItem> unavailableItems = new HashSet<>();
         for (EventItem eventItem : items) {
             final Inventory inventory = inventoryByProductId.get(eventItem.itemId());
-            if (inventory.getAvailableQuantity() < eventItem.quantity()) {
+            if (eventItem.quantity() > inventory.getAvailableQuantity()) {
                 unavailableItems.add(new UnavailableItem(eventItem.itemId(), eventItem.quantity(), inventory.getAvailableQuantity()));
             }
         }
@@ -79,6 +82,7 @@ public class ReservationProcessor {
         final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_RESERVED, event.orderId(), now(),
                 createSucceededPayload(event), NEW, null, 0);
         outboxEventService.persist(outboxEvent);
+        publishTriggerEvent(new PublishmentTriggerEvent(event.orderId()));
     }
 
     private Set<UUID> getMissedProducts(Set<UUID> productIds, Map<UUID, Inventory> inventoryByProductId) {
@@ -108,5 +112,10 @@ public class ReservationProcessor {
         return event.orderCreatedData().items().stream()
                 .map(item -> new ReservedItem(item.itemId(), item.quantity()))
                 .collect(toSet());
+    }
+
+    private void publishTriggerEvent(PublishmentTriggerEvent applicationEvent) {
+        log.info("Sending application event: {}", applicationEvent);
+        eventPublisher.publishEvent(applicationEvent);
     }
 }

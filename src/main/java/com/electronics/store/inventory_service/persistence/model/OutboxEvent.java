@@ -2,6 +2,7 @@ package com.electronics.store.inventory_service.persistence.model;
 
 import com.electronics.store.inventory_service.persistence.model.enums.OrderEventType;
 import com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus;
+import com.electronics.store.outbox_event_publisher.event.Event;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -17,7 +18,7 @@ import java.util.UUID;
 @Table(name = "outbox_events")
 @NoArgsConstructor
 @AllArgsConstructor
-public class OutboxEvent {
+public class OutboxEvent implements Event {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
