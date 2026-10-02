@@ -85,7 +85,7 @@ public class ReservationProcessor {
         final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_RESERVED, event.orderId(), now(),
                 createSucceededPayload(event), NEW, null, 0);
         outboxEventService.persist(outboxEvent);
-        log.info("Reservations and outbox event were saved successfully");
+        log.info("Reservations and outbox event were saved successfully for orderId: {}", event.orderId());
         publishTriggerEvent(trigger);
     }
 

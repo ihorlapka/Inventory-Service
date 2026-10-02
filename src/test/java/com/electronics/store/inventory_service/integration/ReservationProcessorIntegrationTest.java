@@ -145,6 +145,45 @@ class ReservationProcessorIntegrationTest {
     }
 
     @Test
+    void shouldProcessMultipleMessagesInSingleOutboxProcessorIteration() {
+        UUID orderId1 = newOrderId();
+        UUID orderId2 = newOrderId();
+        UUID orderId3 = newOrderId();
+
+        createInventory(productId1, 50, 0);
+        createInventory(productId2, 50, 0);
+
+        MessageEventIn event1 = createOrderEvent(orderId1, productId1, 5, productId2, 3);
+        MessageEventIn event2 = createOrderEvent(orderId2, productId1, 2, productId2, 4);
+        MessageEventIn event3 = createOrderEvent(orderId3, productId1, 1, productId2, 2);
+
+        sendOrderEvent(event1);
+        sendOrderEvent(event2);
+        sendOrderEvent(event3);
+
+        await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
+            List<OutboxEvent> events = outboxEventRepository.findAllByOrderIdIn(List.of(orderId1, orderId2, orderId3));
+            assertThat(events).hasSize(3);
+
+            List<OutboxEvent> publishedEvents = events.stream()
+                    .filter(e -> e.getStatus() == PublishmentStatus.PUBLISHED)
+                    .toList();
+            assertThat(publishedEvents).hasSize(3);
+        });
+
+        List<Reservation> reservations = reservationRepository.findAllByOrderIdIn(List.of(orderId1, orderId2, orderId3));
+        assertThat(reservations).hasSize(6);
+
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            List<OutboxEvent> events = outboxEventRepository.findAllByOrderIdIn(List.of(orderId1, orderId2, orderId3));
+            long publishedCount = events.stream().filter(e -> e.getStatus() == PublishmentStatus.PUBLISHED).count();
+            long newCount = events.stream().filter(e -> e.getStatus() == PublishmentStatus.NEW).count();
+            assertThat(publishedCount).isEqualTo(3);
+            assertThat(newCount).isEqualTo(0);
+        });
+    }
+
+    @Test
     void shouldCreateFailedOutboxEventWhenInventoryMissing() {
         UUID orderId = newOrderId();
         createInventory(productId1, 10, 0);

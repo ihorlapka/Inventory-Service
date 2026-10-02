@@ -50,4 +50,6 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     Optional<OutboxEvent> findLastByOrderIdForUpdate(@Param("orderId") UUID orderId);
 
     List<OutboxEvent> findAllByOrderId(UUID orderId);
+
+    List<OutboxEvent> findAllByOrderIdIn(List<UUID> orderIds);
 }
