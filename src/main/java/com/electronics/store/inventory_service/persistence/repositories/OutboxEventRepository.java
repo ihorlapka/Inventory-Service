@@ -20,11 +20,11 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     Optional<OutboxEvent> findByOrderId(UUID orderId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM OrderEvent oe WHERE oe.orderId = :orderId")
+    @Query("DELETE FROM OutboxEvent oe WHERE oe.orderId = :orderId")
     int removeByOrderId(@NonNull @Param("orderId") UUID orderId);
 
     @Query(value = """
-            SELECT * FROM order_events
+            SELECT * FROM outbox_events
             WHERE status = 'NEW'
             ORDER BY created_at
             LIMIT :batchSize
@@ -34,15 +34,15 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-            UPDATE order_events
-            SET status = 'PUBLISHED'
+            UPDATE outbox_events
+            SET status = 'PUBLISHED', published_at = NOW()
             WHERE id IN (:publishedIds)
             """, nativeQuery = true)
     int updatePublishedEvents(@Param("publishedIds") List<UUID> publishedIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            SELECT e FROM OrderEvent e
+            SELECT e FROM OutboxEvent e
             WHERE e.orderId = :orderId
             ORDER BY e.createdAt DESC
             LIMIT 1

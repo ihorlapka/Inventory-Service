@@ -46,6 +46,7 @@ public class ReservationProcessor {
         final Map<UUID, Inventory> inventoryByProductId = inventories.stream()
                 .collect(toMap(Inventory::getProductId, Function.identity()));
 
+        final PublishmentTriggerEvent trigger = new PublishmentTriggerEvent(event.orderId());
         if (inventories.size() != productIds.size()) {
             log.warn("Expected to get {}, inventories but found {}", productIds.size(), inventories.size());
             final Set<UUID> missedProducts = getMissedProducts(productIds, inventoryByProductId);
@@ -53,6 +54,7 @@ public class ReservationProcessor {
             final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
             outboxEventService.persist(outboxEvent);
             log.info("Outbox event persisted: {}", outboxEvent);
+            publishTriggerEvent(trigger);
             return;
         }
         final Set<UnavailableItem> unavailableItems = new HashSet<>();
@@ -68,6 +70,7 @@ public class ReservationProcessor {
             final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
             outboxEventService.persist(outboxEvent);
             log.info("Outbox event persisted: {}", outboxEvent);
+            publishTriggerEvent(trigger);
             return;
         }
 
@@ -82,7 +85,8 @@ public class ReservationProcessor {
         final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_RESERVED, event.orderId(), now(),
                 createSucceededPayload(event), NEW, null, 0);
         outboxEventService.persist(outboxEvent);
-        publishTriggerEvent(new PublishmentTriggerEvent(event.orderId()));
+        log.info("Reservations and outbox event were saved successfully");
+        publishTriggerEvent(trigger);
     }
 
     private Set<UUID> getMissedProducts(Set<UUID> productIds, Map<UUID, Inventory> inventoryByProductId) {

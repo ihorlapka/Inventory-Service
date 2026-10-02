@@ -13,7 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @ToString
-@Table(name = "reservations")
+@Table(name = "reservations", uniqueConstraints = @UniqueConstraint(name = "uk_reservation_order_product", columnNames = {"order_id", "product_id"}))
 @NoArgsConstructor
 @AllArgsConstructor
 public class Reservation {
@@ -23,10 +23,10 @@ public class Reservation {
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "order_id", nullable = false, unique = true)
+    @Column(name = "order_id", nullable = false)
     private UUID orderId;
 
-    @Column(name = "product_id", nullable = false, unique = true)
+    @Column(name = "product_id", nullable = false)
     private UUID productId;
 
     @Column(name = "amount", nullable = false)

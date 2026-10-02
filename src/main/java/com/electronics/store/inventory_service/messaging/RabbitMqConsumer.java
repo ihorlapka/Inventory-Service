@@ -18,7 +18,7 @@ public class RabbitMqConsumer {
     private final ReservationProcessor reservationProcessor;
 
     @RabbitListener(id = "orders-created",
-            queues = "#{@rabbitMqProperties.getQueueName()}",
+            queues = "#{@rabbitMqProperties.getOrdersQueueName()}",
             concurrency = "${app.rabbit.orders.concurrency:2-8}",
             ackMode = "AUTO")
     public void handleMessage(MessageEventIn event,
@@ -26,7 +26,7 @@ public class RabbitMqConsumer {
                               @Header(value = AmqpHeaders.CORRELATION_ID) String correlationId,
                               @Header(value = AmqpHeaders.TIMESTAMP) long sentTimestamp) {
         try {
-            log.info("Received OrderCreatedData: {}, msgId: {}, correlationId: {}, sentTime: {}", event, messageId, correlationId, sentTimestamp);
+            log.info("Received: {}, msgId: {}, correlationId: {}, sentTime: {}", event, messageId, correlationId, sentTimestamp);
             reservationProcessor.processOrderCreated(event);
         } catch (NullPointerException | IllegalArgumentException | IllegalStateException | ArrayIndexOutOfBoundsException e) {
             throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e); // straight to Dead Letter Queue

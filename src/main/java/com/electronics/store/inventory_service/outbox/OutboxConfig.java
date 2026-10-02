@@ -5,14 +5,12 @@ import com.electronics.store.inventory_service.persistence.services.OutboxEventS
 import com.electronics.store.outbox_event_publisher.OutboxEventHandler;
 import com.electronics.store.outbox_event_publisher.OutboxEventManager;
 import com.electronics.store.outbox_event_publisher.OutboxProcessor;
-import com.electronics.store.outbox_event_publisher.rabbit.RabbitMqConfig;
 import com.electronics.store.outbox_event_publisher.rabbit.RabbitMqPublisher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
-@Import(RabbitMqConfig.class)
+
 @Configuration
 public class OutboxConfig {
 
