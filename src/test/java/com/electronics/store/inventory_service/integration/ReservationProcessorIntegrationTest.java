@@ -138,6 +138,19 @@ class ReservationProcessorIntegrationTest {
         assertThat(reservations).hasSize(2);
         assertThat(reservations).allMatch(r -> r.getStatus() == ReservationStatus.RESERVED);
 
+        List<Inventory> inventories = inventoryRepository.findAllByProductIdIn(Set.of(productId1, productId2));
+        assertThat(inventories).hasSize(2);
+        inventories.forEach(inventory -> {
+            if (inventory.getProductId().equals(productId1)) {
+                assertThat(inventory.getReservedQuantity()).isEqualTo(2);
+                assertThat(inventory.getAvailableQuantity()).isEqualTo(8);
+            }
+            if (inventory.getProductId().equals(productId2)) {
+                assertThat(inventory.getReservedQuantity()).isEqualTo(3);
+                assertThat(inventory.getAvailableQuantity()).isEqualTo(2);
+            }
+        });
+
         assertThat(outboxEventHandler).isNotNull();
         assertThat(outboxEventManager).isNotNull();
         assertThat(outboxProcessor).isNotNull();
@@ -174,6 +187,19 @@ class ReservationProcessorIntegrationTest {
         List<Reservation> reservations = reservationRepository.findAllByOrderIdIn(List.of(orderId1, orderId2, orderId3));
         assertThat(reservations).hasSize(6);
 
+        List<Inventory> inventories = inventoryRepository.findAllByProductIdIn(Set.of(productId1, productId2));
+        assertThat(inventories).hasSize(2);
+        inventories.forEach(inventory -> {
+            if (inventory.getProductId().equals(productId1)) {
+                assertThat(inventory.getReservedQuantity()).isEqualTo(8);
+                assertThat(inventory.getAvailableQuantity()).isEqualTo(42);
+            }
+            if (inventory.getProductId().equals(productId2)) {
+                assertThat(inventory.getReservedQuantity()).isEqualTo(9);
+                assertThat(inventory.getAvailableQuantity()).isEqualTo(41);
+            }
+        });
+
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
             List<OutboxEvent> events = outboxEventRepository.findAllByOrderIdIn(List.of(orderId1, orderId2, orderId3));
             long publishedCount = events.stream().filter(e -> e.getStatus() == PublishmentStatus.PUBLISHED).count();
@@ -203,6 +229,11 @@ class ReservationProcessorIntegrationTest {
             assertThat(outboxEvent.getPayload()).contains("No records in db for requested items!");
         });
 
+        List<Inventory> inventories = inventoryRepository.findAllByProductIdIn(Set.of(productId1, productId2));
+        assertThat(inventories).hasSize(1);
+        assertThat(inventories.getFirst().getReservedQuantity()).isEqualTo(0);
+        assertThat(inventories.getFirst().getAvailableQuantity()).isEqualTo(10);
+
         assertThat(reservationRepository.findAllByOrderId(orderId)).isEmpty();
     }
 
@@ -224,6 +255,19 @@ class ReservationProcessorIntegrationTest {
             assertThat(outboxEvent.getEventType()).isEqualTo(OrderEventType.INVENTORY_FAILED);
             assertThat(outboxEvent.getStatus()).isIn(PublishmentStatus.NEW, PublishmentStatus.PUBLISHED);
             assertThat(outboxEvent.getPayload()).contains("Not enough items in inventory!");
+        });
+
+        List<Inventory> inventories = inventoryRepository.findAllByProductIdIn(Set.of(productId1, productId2));
+        assertThat(inventories).hasSize(2);
+        inventories.forEach(inventory -> {
+            if (inventory.getProductId().equals(productId1)) {
+                assertThat(inventory.getReservedQuantity()).isEqualTo(0);
+                assertThat(inventory.getAvailableQuantity()).isEqualTo(2);
+            }
+            if (inventory.getProductId().equals(productId2)) {
+                assertThat(inventory.getReservedQuantity()).isEqualTo(0);
+                assertThat(inventory.getAvailableQuantity()).isEqualTo(5);
+            }
         });
 
         assertThat(reservationRepository.findAllByOrderId(orderId)).isEmpty();

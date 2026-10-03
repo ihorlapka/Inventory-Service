@@ -21,4 +21,6 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
             WHERE i.productId IN (:productIds)
             """)
     List<Inventory> findInventoriesByProductIdsForUpdate(@Param("productIds") Set<UUID> productIds);
+
+    List<Inventory> findAllByProductIdIn(Set<UUID> productIds);
 }

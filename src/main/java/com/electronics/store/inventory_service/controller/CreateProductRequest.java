@@ -12,25 +12,5 @@ public record CreateProductRequest(
         @NotBlank @Size(max = 255) String name,
         @NotNull @Positive BigDecimal price,
         @NotBlank String characteristics,
-        @Size(max = 255) String description
-) {
-    public String getSku() {
-        return sku;
-    }
-    
-    public String getName() {
-        return name;
-    }
-    
-    public BigDecimal getPrice() {
-        return price;
-    }
-    
-    public String getCharacteristics() {
-        return characteristics;
-    }
-    
-    public String getDescription() {
-        return description;
-    }
+        @Size(max = 255) String description) {
 }
