@@ -16,7 +16,8 @@ public class TestcontainersConfiguration {
         return new PostgreSQLContainer(DockerImageName.parse("postgres:17.5"))
                 .withDatabaseName("inventory_test")
                 .withUsername("test")
-                .withPassword("test");
+                .withPassword("test")
+                .withInitScript("schema.sql");
     }
 
     @Bean
