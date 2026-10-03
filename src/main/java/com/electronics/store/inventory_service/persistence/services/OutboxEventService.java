@@ -28,12 +28,19 @@ public class OutboxEventService implements EventService<OutboxEvent> {
         return eventRepository.removeByOrderId(orderId);
     }
 
+    @Override
     public List<OutboxEvent> findFreshEventsForUpdate(int batchSize) {
         return eventRepository.findFreshEventsForUpdate(batchSize);
     }
 
+    @Override
     public int updatePublishedEvents(List<UUID> publishedIds) {
         return eventRepository.updatePublishedEvents(publishedIds);
+    }
+
+    @Override
+    public void incrementTryCount(UUID eventId) {
+        eventRepository.incrementTryCount(eventId);
     }
 
     public Optional<OutboxEvent> findLastByOrderIdForUpdate(UUID orderId) {

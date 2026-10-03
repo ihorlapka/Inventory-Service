@@ -1,11 +1,11 @@
 package com.electronics.store.inventory_service.outbox;
 
+import com.electronics.store.inventory_service.messaging.RabbitMqPublisher;
 import com.electronics.store.inventory_service.persistence.model.OutboxEvent;
 import com.electronics.store.inventory_service.persistence.services.OutboxEventService;
 import com.electronics.store.outbox_event_publisher.OutboxEventHandler;
 import com.electronics.store.outbox_event_publisher.OutboxEventManager;
 import com.electronics.store.outbox_event_publisher.OutboxProcessor;
-import com.electronics.store.outbox_event_publisher.rabbit.RabbitMqPublisher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,8 +27,8 @@ public class OutboxConfig {
 
     @Bean
     public OutboxProcessor<OutboxEvent> outboxProcessor(RabbitMqPublisher rabbitMqPublisher,
-                                           OutboxEventService outboxEventService,
-                                           @Value("${outbox.events.batch.size}") int eventsBatchSize) {
+                                                        OutboxEventService outboxEventService,
+                                                        @Value("${outbox.events.batch.size}") int eventsBatchSize) {
         return new OutboxProcessor<>(rabbitMqPublisher, outboxEventService, eventsBatchSize);
     }
 }

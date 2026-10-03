@@ -1,6 +1,6 @@
 package com.electronics.store.inventory_service.messaging;
 
-import com.electronics.store.inventory_service.messaging.message.MessageEventIn;
+import com.electronics.store.inventory_service.messaging.message.MessageEvent;
 import com.electronics.store.inventory_service.processor.ReservationProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ public class RabbitMqConsumer {
             queues = "#{@rabbitMqProperties.getOrdersQueueName()}",
             concurrency = "${app.rabbit.orders.concurrency:2-8}",
             ackMode = "AUTO")
-    public void handleMessage(MessageEventIn event,
+    public void handleMessage(MessageEvent event,
                               @Header(value = AmqpHeaders.MESSAGE_ID) String messageId,
                               @Header(value = AmqpHeaders.CORRELATION_ID) String correlationId,
                               @Header(value = AmqpHeaders.TIMESTAMP) long sentTimestamp) {

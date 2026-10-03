@@ -1,10 +1,12 @@
 package com.electronics.store.inventory_service.integration;
 
+import com.electronics.store.inventory_service.messaging.RabbitMqProperties;
+import com.electronics.store.inventory_service.messaging.RabbitMqPublisher;
 import com.electronics.store.inventory_service.messaging.message.*;
 import com.electronics.store.inventory_service.persistence.model.Inventory;
 import com.electronics.store.inventory_service.persistence.model.OutboxEvent;
 import com.electronics.store.inventory_service.persistence.model.Reservation;
-import com.electronics.store.inventory_service.persistence.model.enums.OrderEventType;
+import com.electronics.store.inventory_service.persistence.model.enums.EventType;
 import com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus;
 import com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus;
 import com.electronics.store.inventory_service.persistence.repositories.InventoryRepository;
@@ -13,7 +15,6 @@ import com.electronics.store.inventory_service.persistence.repositories.Reservat
 import com.electronics.store.outbox_event_publisher.OutboxEventHandler;
 import com.electronics.store.outbox_event_publisher.OutboxEventManager;
 import com.electronics.store.outbox_event_publisher.OutboxProcessor;
-import com.electronics.store.outbox_event_publisher.rabbit.RabbitMqPublisher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,6 +92,9 @@ class ReservationProcessorIntegrationTest {
     @Autowired
     private RabbitMqPublisher rabbitMqPublisher;
 
+    @Autowired
+    private RabbitMqProperties rabbitProps;
+
     private UUID productId1;
     private UUID productId2;
 
@@ -117,7 +121,7 @@ class ReservationProcessorIntegrationTest {
         createInventory(productId1, 10, 0);
         createInventory(productId2, 5, 0);
 
-        MessageEventIn event = createOrderEvent(orderId, productId1, 2, productId2, 3);
+        MessageEvent event = createOrderEvent(orderId, productId1, 2, productId2, 3);
 
         sendOrderEvent(event);
 
@@ -126,7 +130,7 @@ class ReservationProcessorIntegrationTest {
             assertThat(events).hasSize(1);
 
             OutboxEvent outboxEvent = events.getFirst();
-            assertThat(outboxEvent.getEventType()).isEqualTo(OrderEventType.INVENTORY_RESERVED);
+            assertThat(outboxEvent.getEventType()).isEqualTo(EventType.INVENTORY_RESERVED);
             assertThat(outboxEvent.getStatus()).isEqualTo(PublishmentStatus.PUBLISHED);
             assertThat(outboxEvent.getOrderId()).isEqualTo(orderId);
             assertThat(outboxEvent.getPayload()).isNotNull();
@@ -166,9 +170,9 @@ class ReservationProcessorIntegrationTest {
         createInventory(productId1, 50, 0);
         createInventory(productId2, 50, 0);
 
-        MessageEventIn event1 = createOrderEvent(orderId1, productId1, 5, productId2, 3);
-        MessageEventIn event2 = createOrderEvent(orderId2, productId1, 2, productId2, 4);
-        MessageEventIn event3 = createOrderEvent(orderId3, productId1, 1, productId2, 2);
+        MessageEvent event1 = createOrderEvent(orderId1, productId1, 5, productId2, 3);
+        MessageEvent event2 = createOrderEvent(orderId2, productId1, 2, productId2, 4);
+        MessageEvent event3 = createOrderEvent(orderId3, productId1, 1, productId2, 2);
 
         sendOrderEvent(event1);
         sendOrderEvent(event2);
@@ -215,7 +219,7 @@ class ReservationProcessorIntegrationTest {
         createInventory(productId1, 10, 0);
 
         UUID missingProductId = UUID.randomUUID();
-        MessageEventIn event = createOrderEvent(orderId, productId1, 2, missingProductId, 3);
+        MessageEvent event = createOrderEvent(orderId, productId1, 2, missingProductId, 3);
 
         sendOrderEvent(event);
 
@@ -224,7 +228,7 @@ class ReservationProcessorIntegrationTest {
             assertThat(events).hasSize(1);
 
             OutboxEvent outboxEvent = events.getFirst();
-            assertThat(outboxEvent.getEventType()).isEqualTo(OrderEventType.INVENTORY_FAILED);
+            assertThat(outboxEvent.getEventType()).isEqualTo(EventType.INVENTORY_FAILED);
             assertThat(outboxEvent.getStatus()).isEqualTo(PublishmentStatus.PUBLISHED);
             assertThat(outboxEvent.getPayload()).contains("No records in db for requested items!");
         });
@@ -243,7 +247,7 @@ class ReservationProcessorIntegrationTest {
         createInventory(productId1, 2, 0);
         createInventory(productId2, 5, 0);
 
-        MessageEventIn event = createOrderEvent(orderId, productId1, 5, productId2, 3);
+        MessageEvent event = createOrderEvent(orderId, productId1, 5, productId2, 3);
 
         sendOrderEvent(event);
 
@@ -252,7 +256,7 @@ class ReservationProcessorIntegrationTest {
             assertThat(events).hasSize(1);
 
             OutboxEvent outboxEvent = events.getFirst();
-            assertThat(outboxEvent.getEventType()).isEqualTo(OrderEventType.INVENTORY_FAILED);
+            assertThat(outboxEvent.getEventType()).isEqualTo(EventType.INVENTORY_FAILED);
             assertThat(outboxEvent.getStatus()).isIn(PublishmentStatus.NEW, PublishmentStatus.PUBLISHED);
             assertThat(outboxEvent.getPayload()).contains("Not enough items in inventory!");
         });
@@ -273,7 +277,7 @@ class ReservationProcessorIntegrationTest {
         assertThat(reservationRepository.findAllByOrderId(orderId)).isEmpty();
     }
 
-    private void sendOrderEvent(MessageEventIn event) {
+    private void sendOrderEvent(MessageEvent event) {
         MessageProperties messageProperties = new MessageProperties();
         messageProperties.setMessageId(UUID.randomUUID().toString());
         messageProperties.setCorrelationId(UUID.randomUUID().toString());
@@ -285,7 +289,7 @@ class ReservationProcessorIntegrationTest {
                 messageProperties
         );
 
-        rabbitTemplate.send("orders.exchange", "orders.created", message);
+        rabbitTemplate.send(rabbitProps.getOrdersExchange(), "orders.created", message);
     }
 
     private void createInventory(UUID productId, int availableQty, int reservedQty) {
@@ -296,7 +300,7 @@ class ReservationProcessorIntegrationTest {
         inventoryRepository.save(inventory);
     }
 
-    private MessageEventIn createOrderEvent(UUID orderId, UUID productId1, int qty1, UUID productId2, int qty2) {
+    private MessageEvent createOrderEvent(UUID orderId, UUID productId1, int qty1, UUID productId2, int qty2) {
         Set<EventItem> items = new HashSet<>();
         items.add(new EventItem(UUID.randomUUID(), productId1, "Product 1", qty1, new BigDecimal("50.00"), "http://example.com/p1"));
         items.add(new EventItem(UUID.randomUUID(), productId2, "Product 2", qty2, new BigDecimal("75.00"), "http://example.com/p2"));
@@ -304,9 +308,9 @@ class ReservationProcessorIntegrationTest {
         OrderCreatedData orderData = new OrderCreatedData(UUID.randomUUID(), com.electronics.store.inventory_service.persistence.model.enums.Currency.USD,
                 new BigDecimal("275.00"), items);
 
-        return new MessageEventIn(
+        return new MessageEvent(
                 UUID.randomUUID(),
-                OrderEventType.ORDER_CREATED,
+                EventType.ORDER_CREATED,
                 orderId,
                 com.electronics.store.inventory_service.persistence.model.enums.OrderStatus.PENDING,
                 OffsetDateTime.now(),

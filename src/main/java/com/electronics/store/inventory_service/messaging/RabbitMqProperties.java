@@ -20,18 +20,22 @@ public class RabbitMqProperties {
 
     final static String PROPERTIES_PREFIX = "rabbit";
 
+    @Value("${" + PROPERTIES_PREFIX + ".orders.exchange.name}")
+    private String ordersExchange;
+
     @Value("${" + PROPERTIES_PREFIX + ".orders.queue.name}")
     private String ordersQueueName;
-
-    @Value("${" + PROPERTIES_PREFIX + ".inventories.queue.name}")
-    private String inventoriesQueueName;
-
-    @Value("${" + PROPERTIES_PREFIX + ".exchange.name}")
-    private String exchange;
 
     @Value("${" + PROPERTIES_PREFIX + ".orders.routing.key}")
     private String ordersRoutingKey;
 
-    @Value("${" + PROPERTIES_PREFIX + ".inventories.routing.key}")
-    private String inventoriesRoutingKey;
+
+    @Value("${" + PROPERTIES_PREFIX + ".inventory.exchange.name}")
+    private String inventoryExchange;
+
+    @Value("${" + PROPERTIES_PREFIX + ".inventory.success.routing.key}")
+    private String inventorySuccessRoutingKey;
+
+    @Value("${" + PROPERTIES_PREFIX + ".inventory.failed.routing.key}")
+    private String inventoryFailedRoutingKey;
 }

@@ -19,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.function.Function;
 
-import static com.electronics.store.inventory_service.persistence.model.enums.OrderEventType.INVENTORY_FAILED;
-import static com.electronics.store.inventory_service.persistence.model.enums.OrderEventType.INVENTORY_RESERVED;
+import static com.electronics.store.inventory_service.persistence.model.enums.EventType.INVENTORY_FAILED;
+import static com.electronics.store.inventory_service.persistence.model.enums.EventType.INVENTORY_RESERVED;
 import static com.electronics.store.inventory_service.persistence.model.enums.OrderStatus.RESERVATION_FAILED;
 import static com.electronics.store.inventory_service.persistence.model.enums.OrderStatus.RESERVED;
 import static com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus.NEW;
@@ -39,8 +39,13 @@ public class ReservationProcessor {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public void processOrderCreated(MessageEventIn event) {
-        final Set<EventItem> items = event.orderCreatedData().items();
+    public void processOrderCreated(MessageEvent event) {
+        final EventData eventData = event.eventData();
+        if (!(eventData instanceof OrderCreatedData)) {
+            log.error("EventData is not of type OrderCreatedData {}", event);
+            return;
+        }
+        final Set<EventItem> items = ((OrderCreatedData) eventData).items();
         final Set<UUID> productIds = items.stream().map(EventItem::itemId).collect(toSet());
         final List<Inventory> inventories = inventoryService.findInventoriesByProductIds(productIds);
         final Map<UUID, Inventory> inventoryByProductId = inventories.stream()
@@ -83,7 +88,7 @@ public class ReservationProcessor {
         }
         reservationService.saveAll(reservations);
         final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_RESERVED, event.orderId(), now(),
-                createSucceededPayload(event), NEW, null, 0);
+                createSucceededPayload(event, items), NEW, null, 0);
         outboxEventService.persist(outboxEvent);
         log.info("Reservations and outbox event were saved successfully for orderId: {}", event.orderId());
         publishTriggerEvent(trigger);
@@ -102,18 +107,18 @@ public class ReservationProcessor {
                 .collect(toSet());
     }
 
-    private String createFailedPayload(MessageEventIn event, Set<UnavailableItem> unavailableItems, String reason) {
-        return PayloadPatcher.serialize(new MessageEventOut(event.eventId(), INVENTORY_FAILED, event.orderId(), RESERVATION_FAILED, now(),
+    private String createFailedPayload(MessageEvent event, Set<UnavailableItem> unavailableItems, String reason) {
+        return PayloadPatcher.serialize(new MessageEvent(event.eventId(), INVENTORY_FAILED, event.orderId(), RESERVATION_FAILED, now(),
                 new InventoryFailedData(unavailableItems, reason)));
     }
 
-    private String createSucceededPayload(MessageEventIn event) {
-        return PayloadPatcher.serialize(new MessageEventOut(event.eventId(), INVENTORY_RESERVED, event.orderId(), RESERVED, now(),
-                new InventoryReservedData(getReservedItems(event))));
+    private String createSucceededPayload(MessageEvent event, Set<EventItem> items) {
+        return PayloadPatcher.serialize(new MessageEvent(event.eventId(), INVENTORY_RESERVED, event.orderId(), RESERVED, now(),
+                new InventoryReservedData(getReservedItems(items))));
     }
 
-    private Set<ReservedItem> getReservedItems(MessageEventIn event) {
-        return event.orderCreatedData().items().stream()
+    private Set<ReservedItem> getReservedItems(Set<EventItem> items) {
+        return items.stream()
                 .map(item -> new ReservedItem(item.itemId(), item.quantity()))
                 .collect(toSet());
     }

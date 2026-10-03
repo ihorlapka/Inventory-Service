@@ -5,7 +5,7 @@ import com.electronics.store.inventory_service.persistence.model.Inventory;
 import com.electronics.store.inventory_service.persistence.model.OutboxEvent;
 import com.electronics.store.inventory_service.persistence.model.Reservation;
 import com.electronics.store.inventory_service.persistence.model.enums.Currency;
-import com.electronics.store.inventory_service.persistence.model.enums.OrderEventType;
+import com.electronics.store.inventory_service.persistence.model.enums.EventType;
 import com.electronics.store.inventory_service.persistence.model.enums.OrderStatus;
 import com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus;
 import com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus;
@@ -71,16 +71,16 @@ class ReservationProcessorTest {
         now = OffsetDateTime.now();
     }
 
-    private MessageEventIn createOrderEvent(UUID eventId, Set<EventItem> items) {
+    private MessageEvent createOrderEvent(UUID eventId, Set<EventItem> items) {
         OrderCreatedData orderData = new OrderCreatedData(
                 UUID.randomUUID(),
                 Currency.USD,
                 new BigDecimal("100.00"),
                 items
         );
-        return new MessageEventIn(
+        return new MessageEvent(
                 eventId,
-                OrderEventType.ORDER_CREATED,
+                EventType.ORDER_CREATED,
                 orderId,
                 OrderStatus.PENDING,
                 now,
@@ -113,7 +113,7 @@ class ReservationProcessorTest {
         EventItem item1 = createEventItem(UUID.randomUUID(), productId1, 2);
         EventItem item2 = createEventItem(UUID.randomUUID(), productId2, 3);
         Set<EventItem> items = Set.of(item1, item2);
-        MessageEventIn event = createOrderEvent(eventId, items);
+        MessageEvent event = createOrderEvent(eventId, items);
 
         Inventory inv1 = createInventory(productId1, 10, 0);
         Inventory inv2 = createInventory(productId2, 10, 0);
@@ -134,7 +134,7 @@ class ReservationProcessorTest {
         assertTrue(reservations.stream().anyMatch(r -> r.getAmount() == 3 && r.getProductId().equals(productId2)));
 
         OutboxEvent outboxEvent = outboxEventCaptor.getValue();
-        assertEquals(OrderEventType.INVENTORY_RESERVED, outboxEvent.getEventType());
+        assertEquals(EventType.INVENTORY_RESERVED, outboxEvent.getEventType());
         assertEquals(orderId, outboxEvent.getOrderId());
         assertEquals(PublishmentStatus.NEW, outboxEvent.getStatus());
 
@@ -153,7 +153,7 @@ class ReservationProcessorTest {
         EventItem item1 = createEventItem(UUID.randomUUID(), productId1, 2);
         EventItem item2 = createEventItem(UUID.randomUUID(), productId2, 3);
         Set<EventItem> items = Set.of(item1, item2);
-        MessageEventIn event = createOrderEvent(eventId, items);
+        MessageEvent event = createOrderEvent(eventId, items);
 
         Inventory inv1 = createInventory(productId1, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet()))
@@ -167,7 +167,7 @@ class ReservationProcessorTest {
         verify(eventPublisher, never()).publishEvent(any());
 
         OutboxEvent outboxEvent = outboxEventCaptor.getValue();
-        assertEquals(OrderEventType.INVENTORY_FAILED, outboxEvent.getEventType());
+        assertEquals(EventType.INVENTORY_FAILED, outboxEvent.getEventType());
         assertEquals(PublishmentStatus.NEW, outboxEvent.getStatus());
     }
 
@@ -177,7 +177,7 @@ class ReservationProcessorTest {
         EventItem item1 = createEventItem(UUID.randomUUID(), productId1, 15);
         EventItem item2 = createEventItem(UUID.randomUUID(), productId2, 3);
         Set<EventItem> items = Set.of(item1, item2);
-        MessageEventIn event = createOrderEvent(eventId, items);
+        MessageEvent event = createOrderEvent(eventId, items);
 
         Inventory inv1 = createInventory(productId1, 10, 0);
         Inventory inv2 = createInventory(productId2, 10, 0);
@@ -192,7 +192,7 @@ class ReservationProcessorTest {
         verify(eventPublisher, never()).publishEvent(any());
 
         OutboxEvent outboxEvent = outboxEventCaptor.getValue();
-        assertEquals(OrderEventType.INVENTORY_FAILED, outboxEvent.getEventType());
+        assertEquals(EventType.INVENTORY_FAILED, outboxEvent.getEventType());
         assertEquals(PublishmentStatus.NEW, outboxEvent.getStatus());
     }
 
@@ -203,7 +203,7 @@ class ReservationProcessorTest {
         UUID missingProductId = UUID.randomUUID();
         EventItem item2 = createEventItem(UUID.randomUUID(), missingProductId, 3);
         Set<EventItem> items = Set.of(item1, item2);
-        MessageEventIn event = createOrderEvent(eventId, items);
+        MessageEvent event = createOrderEvent(eventId, items);
 
         Inventory inv1 = createInventory(productId1, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet()))
@@ -217,14 +217,14 @@ class ReservationProcessorTest {
         verify(eventPublisher, never()).publishEvent(any());
 
         OutboxEvent outboxEvent = outboxEventCaptor.getValue();
-        assertEquals(OrderEventType.INVENTORY_FAILED, outboxEvent.getEventType());
+        assertEquals(EventType.INVENTORY_FAILED, outboxEvent.getEventType());
     }
 
     @Test
     void processOrderCreated_singleItemSuccess() {
         UUID eventId = UUID.randomUUID();
         EventItem item = createEventItem(UUID.randomUUID(), productId1, 5);
-        MessageEventIn event = createOrderEvent(eventId, Set.of(item));
+        MessageEvent event = createOrderEvent(eventId, Set.of(item));
 
         Inventory inv = createInventory(productId1, 10, 2);
         when(inventoryService.findInventoriesByProductIds(anySet()))
@@ -248,7 +248,7 @@ class ReservationProcessorTest {
     void processOrderCreated_exactAvailableQuantity() {
         UUID eventId = UUID.randomUUID();
         EventItem item = createEventItem(UUID.randomUUID(), productId1, 10);
-        MessageEventIn event = createOrderEvent(eventId, Set.of(item));
+        MessageEvent event = createOrderEvent(eventId, Set.of(item));
 
         Inventory inv = createInventory(productId1, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet()))
@@ -267,7 +267,7 @@ class ReservationProcessorTest {
     void processOrderCreated_zeroQuantity() {
         UUID eventId = UUID.randomUUID();
         EventItem item = createEventItem(UUID.randomUUID(), productId1, 0);
-        MessageEventIn event = createOrderEvent(eventId, Set.of(item));
+        MessageEvent event = createOrderEvent(eventId, Set.of(item));
 
         Inventory inv = createInventory(productId1, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet()))
