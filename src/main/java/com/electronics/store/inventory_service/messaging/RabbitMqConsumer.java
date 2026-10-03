@@ -22,11 +22,11 @@ public class RabbitMqConsumer {
             concurrency = "${app.rabbit.orders.concurrency:2-8}",
             ackMode = "AUTO")
     public void handleMessage(MessageEvent event,
-                              @Header(value = AmqpHeaders.MESSAGE_ID) String messageId,
-                              @Header(value = AmqpHeaders.CORRELATION_ID) String correlationId,
+                              @Header(value = AmqpHeaders.MESSAGE_ID) String eventId,
+                              @Header(value = AmqpHeaders.CORRELATION_ID) String orderId,
                               @Header(value = AmqpHeaders.TIMESTAMP) long sentTimestamp) {
         try {
-            log.info("Received: {}, msgId: {}, correlationId: {}, sentTime: {}", event, messageId, correlationId, sentTimestamp);
+            log.info("Received: {}, msgId: {}, correlationId: {}, sentTime: {}", event, eventId, orderId, sentTimestamp);
             reservationProcessor.processOrderCreated(event);
         } catch (NullPointerException | IllegalArgumentException | IllegalStateException | ArrayIndexOutOfBoundsException e) {
             throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e); // straight to Dead Letter Queue

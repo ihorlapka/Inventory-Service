@@ -50,4 +50,9 @@ public class OutboxEvent implements Event {
 
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
+
+    @Override
+    public String getEventTypeName() {
+        return eventType.name();
+    }
 }

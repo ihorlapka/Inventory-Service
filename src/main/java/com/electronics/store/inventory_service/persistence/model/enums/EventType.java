@@ -3,6 +3,7 @@ package com.electronics.store.inventory_service.persistence.model.enums;
 public enum EventType {
     ORDER_CREATED,
     ORDER_CANCELLED,
+    ORDER_MODIFIED,
     INVENTORY_RESERVED,
     INVENTORY_FAILED,
     PAYMENT_COMPLETED,
