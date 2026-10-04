@@ -19,29 +19,30 @@ CREATE TYPE reservation_status AS ENUM (
 );
 
 CREATE TABLE products (
-    id              UUID primary key default gen_random_uuid(),
-    sku             VARCHAR(255)  not null unique,
-    name            VARCHAR(255)  not null,
-    price           DECIMAL(9, 6) not null,
-    characteristics JSONB         not null,
-    images          BYTEA[],
-    description     VARCHAR(255)  not null
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sku             VARCHAR(255)  NOT NULL UNIQUE,
+    name            VARCHAR(255)  NOT NULL,
+    price           DECIMAL(9, 6) NOT NULL,
+    characteristics JSONB         NOT NULL,
+    image_url        VARCHAR(255),
+    description     VARCHAR(255)  NOT NULL
 );
 
 CREATE TABLE inventory (
-    id                 UUID primary key default gen_random_uuid(),
-    product_id         UUID    not null unique,
-    available_quantity INTEGER not null CHECK (available_quantity >= 0),
-    reserved_quantity  INTEGER not null CHECK (reserved_quantity >= 0)
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id         UUID    NOT NULL UNIQUE,
+    available_quantity INTEGER NOT NULL CHECK (available_quantity >= 0),
+    reserved_quantity  INTEGER NOT NULL CHECK (reserved_quantity >= 0)
 );
 
 CREATE TABLE reservations (
-    id         UUID primary key         default gen_random_uuid(),
-    order_id   UUID               not null,
-    product_id UUID               not null,
-    amount     INTEGER            not null,
-    status     reservation_status not null,
+    id         UUID PRIMARY KEY         DEFAULT gen_random_uuid(),
+    order_id   UUID               NOT NULL,
+    product_id UUID               NOT NULL,
+    amount     INTEGER            NOT NULL,
+    status     reservation_status NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    released_at TIMESTAMP WITH TIME ZONE
     UNIQUE (order_id, product_id)
 );
 

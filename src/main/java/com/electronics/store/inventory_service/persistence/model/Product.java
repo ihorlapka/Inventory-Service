@@ -35,9 +35,8 @@ public class Product {
     @Column(name = "characteristics", nullable = false)
     private String characteristics;
 
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "images", columnDefinition = "bytea[]")
-    private byte[][] images; //too heavy, consider refactoring
+    @Column(name = "image_url")
+    private String imageUrl;
 
     @Column(nullable = false)
     private String description;

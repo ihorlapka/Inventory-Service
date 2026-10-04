@@ -11,6 +11,7 @@ public record CreateProductRequest(
         @NotBlank @Size(max = 255) String sku,
         @NotBlank @Size(max = 255) String name,
         @NotNull @Positive BigDecimal price,
+        @NotBlank String imageUrl,
         @NotBlank String characteristics,
         @Size(max = 255) String description) {
 }

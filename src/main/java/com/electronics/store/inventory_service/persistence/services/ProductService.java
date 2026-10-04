@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,7 +36,7 @@ public class ProductService {
         product.setName(request.name());
         product.setPrice(request.price());
         product.setCharacteristics(request.characteristics());
-        product.setImages(new byte[0][]);
+        product.setImageUrl(request.imageUrl());
         product.setDescription(request.description());
         return productRepository.save(product);
     }
@@ -57,6 +58,10 @@ public class ProductService {
             throw new ProductNotFoundException(id);
         }
         productRepository.deleteById(id);
+    }
+
+    public List<Product> findByProductIdIn(Set<UUID> productIds) {
+        return productRepository.findByProductIdIn(productIds);
     }
 
     public static class ProductNotFoundException extends RuntimeException {

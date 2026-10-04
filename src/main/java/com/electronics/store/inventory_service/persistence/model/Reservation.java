@@ -39,4 +39,7 @@ public class Reservation {
 
     @Column(name = "created_at", columnDefinition = "TIMESTAMP WITH TIME ZONE", updatable = false)
     private OffsetDateTime createdAt;
+
+    @Column(name = "released_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime releasedAt;
 }

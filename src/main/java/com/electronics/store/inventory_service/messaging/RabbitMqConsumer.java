@@ -27,7 +27,12 @@ public class RabbitMqConsumer {
                               @Header(value = AmqpHeaders.TIMESTAMP) long sentTimestamp) {
         try {
             log.info("Received: {}, msgId: {}, correlationId: {}, sentTime: {}", event, eventId, orderId, sentTimestamp);
-            reservationProcessor.processOrderCreated(event);
+            switch (event.eventType()) {
+                case ORDER_CREATED -> reservationProcessor.processOrderCreated(event);
+                case ORDER_CANCELLED ->  reservationProcessor.processOrderCancelled(event);
+                case ORDER_MODIFIED ->  reservationProcessor.processOrderModified(event);
+            }
+
         } catch (NullPointerException | IllegalArgumentException | IllegalStateException | ArrayIndexOutOfBoundsException e) {
             throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e); // straight to Dead Letter Queue
         }
