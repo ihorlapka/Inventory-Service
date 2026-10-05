@@ -64,7 +64,7 @@ public class ReservationProcessor {
             log.warn("Expected to get {}, inventories but found {}", productIds.size(), inventories.size());
             final Set<UUID> missedProducts = getMissedProducts(productIds, inventoryByProductId);
             final String payload = createFailedPayload(event.orderId(), outboxEventId, getUnavailableItems(requestedItems, missedProducts), "No records in db for requested items!");
-            final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
+            final OutboxEvent outboxEvent = new OutboxEvent(outboxEventId, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
             outboxEventService.persist(outboxEvent);
             log.info("Outbox event persisted: {}", outboxEvent);
             publishTriggerEvent(trigger);
@@ -80,7 +80,7 @@ public class ReservationProcessor {
         if (!unavailableItems.isEmpty()) {
             log.warn("Unavailable products found: {}, orderId: {}", unavailableItems, event.orderId());
             final String payload = createFailedPayload(event.orderId(), outboxEventId, unavailableItems, "Not enough items in inventory!");
-            final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
+            final OutboxEvent outboxEvent = new OutboxEvent(outboxEventId, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
             outboxEventService.persist(outboxEvent);
             log.info("Outbox event persisted: {}", outboxEvent);
             publishTriggerEvent(trigger);
@@ -96,7 +96,7 @@ public class ReservationProcessor {
         }
         reservationService.saveAll(reservations);
         final List<Product> products = productService.findByProductIdIn(productIds);
-        final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_RESERVED, event.orderId(), now(),
+        final OutboxEvent outboxEvent = new OutboxEvent(outboxEventId, INVENTORY_RESERVED, event.orderId(), now(),
                 createSucceededPayload(event.orderId(), outboxEventId, requestedItems, products), NEW, null, 0);
         outboxEventService.persist(outboxEvent);
         log.info("Reservations and outbox event were saved successfully for orderId: {}", event.orderId());

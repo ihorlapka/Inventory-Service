@@ -3,6 +3,7 @@ package com.electronics.store.inventory_service.processor;
 import com.electronics.store.inventory_service.messaging.message.*;
 import com.electronics.store.inventory_service.persistence.model.Inventory;
 import com.electronics.store.inventory_service.persistence.model.OutboxEvent;
+import com.electronics.store.inventory_service.persistence.model.Product;
 import com.electronics.store.inventory_service.persistence.model.Reservation;
 import com.electronics.store.inventory_service.persistence.model.enums.Currency;
 import com.electronics.store.inventory_service.persistence.model.enums.EventType;
@@ -11,6 +12,7 @@ import com.electronics.store.inventory_service.persistence.model.enums.Reservati
 import com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus;
 import com.electronics.store.inventory_service.persistence.services.InventoryService;
 import com.electronics.store.inventory_service.persistence.services.OutboxEventService;
+import com.electronics.store.inventory_service.persistence.services.ProductService;
 import com.electronics.store.inventory_service.persistence.services.ReservationService;
 import com.electronics.store.outbox_event_publisher.PublishmentTriggerEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +44,9 @@ class ReservationProcessorTest {
 
     @Mock
     private OutboxEventService outboxEventService;
+
+    @Mock
+    private ProductService productService;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -104,6 +109,18 @@ class ReservationProcessorTest {
         return inventory;
     }
 
+    private Product createProduct(UUID productId) {
+        Product product = new Product();
+        product.setId(productId);
+        product.setSku("SKU-" + productId);
+        product.setName("Product " + productId);
+        product.setPrice(new BigDecimal("99.99"));
+        product.setCharacteristics("{}");
+        product.setImageUrl("http://example.com/image.jpg");
+        product.setDescription("Test product");
+        return product;
+    }
+
     @Test
     void processOrderCreated_successfulReservation() {
         UUID eventId = UUID.randomUUID();
@@ -115,6 +132,8 @@ class ReservationProcessorTest {
         Inventory inv1 = createInventory(productId1, 10, 0);
         Inventory inv2 = createInventory(productId2, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet())).thenReturn(List.of(inv1, inv2));
+        when(productService.findByProductIdIn(Set.of(productId1, productId2)))
+                .thenReturn(List.of(createProduct(productId1), createProduct(productId2)));
 
         reservationProcessor.processOrderCreated(event);
 
@@ -226,6 +245,8 @@ class ReservationProcessorTest {
         Inventory inv = createInventory(productId1, 10, 2);
         when(inventoryService.findInventoriesByProductIds(anySet()))
                 .thenReturn(List.of(inv));
+        when(productService.findByProductIdIn(Set.of(productId1)))
+                .thenReturn(List.of(createProduct(productId1)));
 
         reservationProcessor.processOrderCreated(event);
 
@@ -250,6 +271,8 @@ class ReservationProcessorTest {
         Inventory inv = createInventory(productId1, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet()))
                 .thenReturn(List.of(inv));
+        when(productService.findByProductIdIn(Set.of(productId1)))
+                .thenReturn(List.of(createProduct(productId1)));
 
         reservationProcessor.processOrderCreated(event);
 
@@ -269,6 +292,8 @@ class ReservationProcessorTest {
         Inventory inv = createInventory(productId1, 10, 0);
         when(inventoryService.findInventoriesByProductIds(anySet()))
                 .thenReturn(List.of(inv));
+        when(productService.findByProductIdIn(Set.of(productId1)))
+                .thenReturn(List.of(createProduct(productId1)));
 
         reservationProcessor.processOrderCreated(event);
 
