@@ -32,7 +32,7 @@ public class Reservation {
     @Column(name = "amount", nullable = false)
     private int amount;
 
-    @Column(name = "status", nullable = false, updatable = false)
+    @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     private ReservationStatus status;

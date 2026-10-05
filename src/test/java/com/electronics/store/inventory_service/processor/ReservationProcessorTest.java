@@ -14,6 +14,8 @@ import com.electronics.store.inventory_service.persistence.services.InventorySer
 import com.electronics.store.inventory_service.persistence.services.OutboxEventService;
 import com.electronics.store.inventory_service.persistence.services.ProductService;
 import com.electronics.store.inventory_service.persistence.services.ReservationService;
+import com.electronics.store.inventory_service.messaging.message.OrderCancelledData;
+import com.electronics.store.inventory_service.messaging.message.OrderModifiedData;
 import com.electronics.store.outbox_event_publisher.PublishmentTriggerEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,9 @@ class ReservationProcessorTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private ReservationModifier reservationModifier;
 
     @InjectMocks
     private ReservationProcessor reservationProcessor;
@@ -301,5 +306,187 @@ class ReservationProcessorTest {
         List<Reservation> reservations = reservationCaptor.getValue();
         assertEquals(1, reservations.size());
         assertEquals(0, reservations.getFirst().getAmount());
+    }
+
+    private MessageEvent createOrderCancelledEvent(UUID eventId, Set<UUID> productIds) {
+        OrderCancelledData orderData = new OrderCancelledData(productIds, "Customer requested cancellation");
+        return new MessageEvent(
+                eventId,
+                EventType.ORDER_CANCELLED,
+                orderId,
+                OrderStatus.CANCELLED,
+                now,
+                orderData
+        );
+    }
+
+    private MessageEvent createOrderModifiedEvent(UUID eventId, Set<EventItem> itemsToUpdate) {
+        OrderModifiedData orderData = new OrderModifiedData(itemsToUpdate);
+        return new MessageEvent(
+                eventId,
+                EventType.ORDER_MODIFIED,
+                orderId,
+                OrderStatus.MODIFIED,
+                now,
+                orderData
+        );
+    }
+
+    @Test
+    void processOrderCancelled_successfulRelease() {
+        UUID eventId = UUID.randomUUID();
+        Set<UUID> productIds = Set.of(productId1, productId2);
+        MessageEvent event = createOrderCancelledEvent(eventId, productIds);
+
+        Reservation res1 = new Reservation(UUID.randomUUID(), orderId, productId1, 2, ReservationStatus.RESERVED, now.minusHours(1), null);
+        Reservation res2 = new Reservation(UUID.randomUUID(), orderId, productId2, 3, ReservationStatus.RESERVED, now.minusHours(1), null);
+        when(reservationService.findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds))
+                .thenReturn(List.of(res1, res2));
+
+        Inventory inv1 = createInventory(productId1, 8, 2);
+        Inventory inv2 = createInventory(productId2, 7, 3);
+        when(inventoryService.findInventoriesByProductIds(productIds))
+                .thenReturn(List.of(inv1, inv2));
+
+        reservationProcessor.processOrderCancelled(event);
+
+        verify(reservationService).findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds);
+        verify(inventoryService).findInventoriesByProductIds(productIds);
+
+        assertEquals(ReservationStatus.RELEASED, res1.getStatus());
+        assertEquals(ReservationStatus.RELEASED, res2.getStatus());
+        assertNotNull(res1.getReleasedAt());
+        assertNotNull(res2.getReleasedAt());
+
+        assertEquals(10, inv1.getAvailableQuantity());
+        assertEquals(0, inv1.getReservedQuantity());
+        assertEquals(10, inv2.getAvailableQuantity());
+        assertEquals(0, inv2.getReservedQuantity());
+    }
+
+    @Test
+    void processOrderCancelled_noReservationsFound() {
+        UUID eventId = UUID.randomUUID();
+        Set<UUID> productIds = Set.of(productId1, productId2);
+        MessageEvent event = createOrderCancelledEvent(eventId, productIds);
+
+        when(reservationService.findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds)).thenReturn(List.of());
+        reservationProcessor.processOrderCancelled(event);
+
+        verify(reservationService).findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds);
+        verify(inventoryService, never()).findInventoriesByProductIds(anySet());
+    }
+
+    @Test
+    void processOrderCancelled_partialReservationsFound() {
+        UUID eventId = UUID.randomUUID();
+        Set<UUID> productIds = Set.of(productId1, productId2, UUID.randomUUID());
+        MessageEvent event = createOrderCancelledEvent(eventId, productIds);
+
+        Reservation res1 = new Reservation(UUID.randomUUID(), orderId, productId1, 2, ReservationStatus.RESERVED, now.minusHours(1), null);
+        when(reservationService.findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds)).thenReturn(List.of(res1));
+
+        Inventory inv1 = createInventory(productId1, 8, 2);
+        Inventory inv2 = createInventory(productId2, 10, 0);
+        when(inventoryService.findInventoriesByProductIds(productIds)).thenReturn(List.of(inv1, inv2));
+
+        reservationProcessor.processOrderCancelled(event);
+
+        verify(reservationService).findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds);
+        verify(inventoryService).findInventoriesByProductIds(productIds);
+
+        assertEquals(ReservationStatus.RELEASED, res1.getStatus());
+        assertEquals(10, inv1.getAvailableQuantity());
+        assertEquals(0, inv1.getReservedQuantity());
+    }
+
+    @Test
+    void processOrderCancelled_invalidEventDataType() {
+        UUID eventId = UUID.randomUUID();
+        MessageEvent event = new MessageEvent(
+                eventId,
+                EventType.ORDER_CANCELLED,
+                orderId,
+                OrderStatus.CANCELLED,
+                now,
+                new OrderCreatedData(UUID.randomUUID(), Currency.USD, BigDecimal.TEN, Set.of())
+        );
+
+        reservationProcessor.processOrderCancelled(event);
+
+        verify(reservationService, never()).findAllByOrderIdAndStatusAndProductIdsIn(any(), any(), any());
+        verify(inventoryService, never()).findInventoriesByProductIds(anySet());
+    }
+
+    @Test
+    void processOrderModified_successfulModification() {
+        UUID eventId = UUID.randomUUID();
+        EventItem item1 = createEventItem(UUID.randomUUID(), productId1, 5);
+        EventItem item2 = createEventItem(UUID.randomUUID(), productId2, 3);
+        Set<EventItem> itemsToUpdate = Set.of(item1, item2);
+        MessageEvent event = createOrderModifiedEvent(eventId, itemsToUpdate);
+
+        Product product1 = createProduct(productId1);
+        Product product2 = createProduct(productId2);
+        when(productService.findByProductIdIn(Set.of(productId1, productId2))).thenReturn(List.of(product1, product2));
+
+        reservationProcessor.processOrderModified(event);
+
+        verify(reservationModifier).updateReservation(event, itemsToUpdate);
+        verify(productService).findByProductIdIn(Set.of(productId1, productId2));
+        verify(outboxEventService).persist(outboxEventCaptor.capture());
+        verify(eventPublisher).publishEvent(triggerEventCaptor.capture());
+
+        OutboxEvent outboxEvent = outboxEventCaptor.getValue();
+        assertEquals(EventType.INVENTORY_RESERVED, outboxEvent.getEventType());
+        assertEquals(orderId, outboxEvent.getOrderId());
+        assertEquals(PublishmentStatus.NEW, outboxEvent.getStatus());
+
+        PublishmentTriggerEvent triggerEvent = triggerEventCaptor.getValue();
+        assertEquals(orderId, triggerEvent.orderId());
+    }
+
+    @Test
+    void processOrderModified_insufficientInventory() {
+        UUID eventId = UUID.randomUUID();
+        EventItem item = createEventItem(UUID.randomUUID(), productId1, 100);
+        Set<EventItem> itemsToUpdate = Set.of(item);
+        MessageEvent event = createOrderModifiedEvent(eventId, itemsToUpdate);
+
+        NotEnoughItemsInInventory exception = new NotEnoughItemsInInventory("Not enough quantity", productId1);
+        doThrow(exception).when(reservationModifier).updateReservation(event, itemsToUpdate);
+
+        reservationProcessor.processOrderModified(event);
+
+        verify(reservationModifier).updateReservation(event, itemsToUpdate);
+        verify(productService, never()).findByProductIdIn(anySet());
+        verify(outboxEventService).persist(outboxEventCaptor.capture());
+        verify(eventPublisher).publishEvent(triggerEventCaptor.capture());
+
+        OutboxEvent outboxEvent = outboxEventCaptor.getValue();
+        assertEquals(EventType.INVENTORY_FAILED, outboxEvent.getEventType());
+        assertEquals(orderId, outboxEvent.getOrderId());
+        assertEquals(PublishmentStatus.NEW, outboxEvent.getStatus());
+        assertTrue(outboxEvent.getPayload().contains("Not enough requestedItems in inventory!"));
+    }
+
+    @Test
+    void processOrderModified_invalidEventDataType() {
+        UUID eventId = UUID.randomUUID();
+        MessageEvent event = new MessageEvent(
+                eventId,
+                EventType.ORDER_MODIFIED,
+                orderId,
+                OrderStatus.PENDING,
+                now,
+                new OrderCreatedData(UUID.randomUUID(), Currency.USD, BigDecimal.TEN, Set.of())
+        );
+
+        reservationProcessor.processOrderModified(event);
+
+        verify(reservationModifier, never()).updateReservation(any(), any());
+        verify(productService, never()).findByProductIdIn(anySet());
+        verify(outboxEventService, never()).persist(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 }

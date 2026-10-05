@@ -18,6 +18,8 @@ public record MessageEvent(
         @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "eventType")
         @JsonSubTypes({
                 @JsonSubTypes.Type(value = OrderCreatedData.class, name = "ORDER_CREATED"),
+                @JsonSubTypes.Type(value = OrderCancelledData.class, name = "ORDER_CANCELLED"),
+                @JsonSubTypes.Type(value = OrderModifiedData.class, name = "ORDER_MODIFIED"),
                 @JsonSubTypes.Type(value = InventoryReservedData.class, name = "INVENTORY_RESERVED"),
                 @JsonSubTypes.Type(value = InventoryFailedData.class, name = "INVENTORY_FAILED")
         })
