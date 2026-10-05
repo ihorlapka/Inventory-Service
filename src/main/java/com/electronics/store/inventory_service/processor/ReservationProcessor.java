@@ -28,8 +28,10 @@ import static com.electronics.store.inventory_service.persistence.model.enums.Pu
 import static com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus.RELEASED;
 import static com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus.RESERVED;
 import static java.time.OffsetDateTime.now;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toMap;
+import static org.hibernate.internal.util.collections.CollectionHelper.setOf;
 
 @Slf4j
 @Component
@@ -41,6 +43,7 @@ public class ReservationProcessor {
     private final OutboxEventService outboxEventService;
     private final ApplicationEventPublisher eventPublisher;
     private final ProductService productService;
+    private final ReservationModifier reservationModifier;
 
     @Transactional
     public void processOrderCreated(MessageEvent event) {
@@ -50,16 +53,17 @@ public class ReservationProcessor {
             return;
         }
         final Set<EventItem> requestedItems = orderCreatedData.items();
-        final Set<UUID> productIds = requestedItems.stream().map(EventItem::itemId).collect(toSet());
+        final Set<UUID> productIds = getItemIds(requestedItems);
         final List<Inventory> inventories = inventoryService.findInventoriesByProductIds(productIds);
         final Map<UUID, Inventory> inventoryByProductId = inventories.stream()
                 .collect(toMap(Inventory::getProductId, Function.identity()));
 
+        final UUID outboxEventId = randomUUID();
         final PublishmentTriggerEvent trigger = new PublishmentTriggerEvent(event.orderId());
         if (inventories.size() != productIds.size()) {
             log.warn("Expected to get {}, inventories but found {}", productIds.size(), inventories.size());
             final Set<UUID> missedProducts = getMissedProducts(productIds, inventoryByProductId);
-            final String payload = createFailedPayload(event, getUnavailableItems(requestedItems, missedProducts), "No records in db for requested requestedItems!");
+            final String payload = createFailedPayload(event.orderId(), outboxEventId, getUnavailableItems(requestedItems, missedProducts), "No records in db for requested items!");
             final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
             outboxEventService.persist(outboxEvent);
             log.info("Outbox event persisted: {}", outboxEvent);
@@ -75,7 +79,7 @@ public class ReservationProcessor {
         }
         if (!unavailableItems.isEmpty()) {
             log.warn("Unavailable products found: {}, orderId: {}", unavailableItems, event.orderId());
-            final String payload = createFailedPayload(event, unavailableItems, "Not enough requestedItems in inventory!");
+            final String payload = createFailedPayload(event.orderId(), outboxEventId, unavailableItems, "Not enough items in inventory!");
             final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
             outboxEventService.persist(outboxEvent);
             log.info("Outbox event persisted: {}", outboxEvent);
@@ -93,7 +97,7 @@ public class ReservationProcessor {
         reservationService.saveAll(reservations);
         final List<Product> products = productService.findByProductIdIn(productIds);
         final OutboxEvent outboxEvent = new OutboxEvent(null, INVENTORY_RESERVED, event.orderId(), now(),
-                createSucceededPayload(event, requestedItems, products), NEW, null, 0);
+                createSucceededPayload(event.orderId(), outboxEventId, requestedItems, products), NEW, null, 0);
         outboxEventService.persist(outboxEvent);
         log.info("Reservations and outbox event were saved successfully for orderId: {}", event.orderId());
         publishTriggerEvent(trigger);
@@ -112,7 +116,7 @@ public class ReservationProcessor {
             return;
         }
         final List<Inventory> inventories = inventoryService.findInventoriesByProductIds(orderCancelledData.productIds());
-        final Map<UUID, Reservation> reservationByProductId = reservations.stream().collect(toMap(Reservation::getProductId, Function.identity()));
+        final Map<UUID, Reservation> reservationByProductId = getReservationByProductId(reservations);
         for (Inventory inventory : inventories) {
             final Reservation reservation = reservationByProductId.get(inventory.getProductId());
             if (reservation == null) {
@@ -132,11 +136,35 @@ public class ReservationProcessor {
     @Transactional
     public void processOrderModified(MessageEvent event) {
         final EventData eventData = event.eventData();
-        if (!(eventData instanceof OrderModifiedData orderModifiedData)) {
+        if (!(eventData instanceof OrderModifiedData(Set<EventItem> itemsToUpdate))) {
             log.error("EventData is not of type OrderModifiedData {}", event);
             return;
         }
+        OutboxEvent outboxEvent;
+        final UUID outboxEventId = randomUUID();
+        try {
+            reservationModifier.updateReservation(event, itemsToUpdate);
+            final List<Product> products = productService.findByProductIdIn(getItemIds(itemsToUpdate));
+            outboxEvent = new OutboxEvent(outboxEventId, INVENTORY_RESERVED, event.orderId(), now(),
+                    createSucceededPayload(event.orderId(), outboxEventId, itemsToUpdate, products), NEW, null, 0);
+            log.info("Reservations and outbox event were saved successfully for modified reservations orderId: {}", event.orderId());
+        } catch (NotEnoughItemsInInventory e) {
+            final Set<UnavailableItem> unavailableItems = getUnavailableItems(itemsToUpdate, setOf(e.getProductId()));
+            log.warn("Unavailable product found: {}, orderId: {}", e.getProductId(), event.orderId());
+            final String payload = createFailedPayload(event.orderId(), outboxEventId, unavailableItems, "Not enough requestedItems in inventory!");
+            outboxEvent = new OutboxEvent(outboxEventId, INVENTORY_FAILED, event.orderId(), now(), payload, NEW, null, 0);
+        }
+        outboxEventService.persist(outboxEvent);
+        log.info("Outbox event persisted: {}", outboxEvent);
+        publishTriggerEvent(new PublishmentTriggerEvent(event.orderId()));
+    }
 
+    private Set<UUID> getItemIds(Set<EventItem> requestedItemsToUpdate) {
+        return requestedItemsToUpdate.stream().map(EventItem::itemId).collect(toSet());
+    }
+
+    private Map<UUID, Reservation> getReservationByProductId(List<Reservation> reservations) {
+        return reservations.stream().collect(toMap(Reservation::getProductId, Function.identity()));
     }
 
     private Set<UUID> getMissedProducts(Set<UUID> productIds, Map<UUID, Inventory> inventoryByProductId) {
@@ -152,13 +180,13 @@ public class ReservationProcessor {
                 .collect(toSet());
     }
 
-    private String createFailedPayload(MessageEvent event, Set<UnavailableItem> unavailableItems, String reason) {
-        return PayloadPatcher.serialize(new MessageEvent(event.eventId(), INVENTORY_FAILED, event.orderId(), RESERVATION_FAILED, now(),
+    private String createFailedPayload(UUID orderId, UUID eventId, Set<UnavailableItem> unavailableItems, String reason) {
+        return PayloadPatcher.serialize(new MessageEvent(eventId, INVENTORY_FAILED, orderId, RESERVATION_FAILED, now(),
                 new InventoryFailedData(unavailableItems, reason)));
     }
 
-    private String createSucceededPayload(MessageEvent event, Set<EventItem> items, List<Product> products) {
-        return PayloadPatcher.serialize(new MessageEvent(event.eventId(), INVENTORY_RESERVED, event.orderId(), OrderStatus.RESERVED, now(),
+    private String createSucceededPayload(UUID orderId, UUID eventId, Set<EventItem> items, List<Product> products) {
+        return PayloadPatcher.serialize(new MessageEvent(eventId, INVENTORY_RESERVED, orderId, OrderStatus.RESERVED, now(),
                 new InventoryReservedData(getReservedItems(items, products))));
     }
 

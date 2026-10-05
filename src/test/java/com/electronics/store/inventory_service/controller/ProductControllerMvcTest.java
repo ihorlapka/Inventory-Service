@@ -41,7 +41,7 @@ class ProductControllerMvcTest {
         UUID productId = UUID.randomUUID();
         CreateProductRequest request = new CreateProductRequest(
                 "SKU-001", "Test Product", new BigDecimal("99.99"),
-                "{\"color\":\"black\"}", "Test description"
+                "{\"color\":\"black\"}", "Characteristics","Test description"
         );
 
         Product savedProduct = new Product();
@@ -50,7 +50,7 @@ class ProductControllerMvcTest {
         savedProduct.setName(request.name());
         savedProduct.setPrice(request.price());
         savedProduct.setCharacteristics(request.characteristics());
-        savedProduct.setImages(new byte[0][]);
+        savedProduct.setImageUrl("http://some.url");
         savedProduct.setDescription(request.description());
 
         when(productService.createProduct(any(CreateProductRequest.class))).thenReturn(savedProduct);
@@ -116,7 +116,7 @@ class ProductControllerMvcTest {
         product.setName("Test Product");
         product.setPrice(new BigDecimal("99.99"));
         product.setCharacteristics("{\"color\":\"black\"}");
-        product.setImages(new byte[0][]);
+        product.setImageUrl("http://some.url");
         product.setDescription("Test description");
 
         when(productService.getProduct(productId)).thenReturn(product);
@@ -154,7 +154,7 @@ class ProductControllerMvcTest {
         product1.setName("Product 1");
         product1.setPrice(new BigDecimal("99.99"));
         product1.setCharacteristics("{}");
-        product1.setImages(new byte[0][]);
+        product1.setImageUrl("http://some.url");
         product1.setDescription("Description 1");
 
         Product product2 = new Product();
@@ -163,7 +163,7 @@ class ProductControllerMvcTest {
         product2.setName("Product 2");
         product2.setPrice(new BigDecimal("149.99"));
         product2.setCharacteristics("{}");
-        product2.setImages(new byte[0][]);
+        product2.setImageUrl("http://some.url");
         product2.setDescription("Description 2");
 
         when(productService.getAllProducts()).thenReturn(List.of(product1, product2));
@@ -190,7 +190,7 @@ class ProductControllerMvcTest {
         updatedProduct.setName(request.name());
         updatedProduct.setPrice(request.price());
         updatedProduct.setCharacteristics(request.characteristics());
-        updatedProduct.setImages(new byte[0][]);
+        updatedProduct.setImageUrl("http://some.url");
         updatedProduct.setDescription(request.description());
 
         when(productService.updateProduct(eq(productId), any(UpdateProductRequest.class))).thenReturn(updatedProduct);
@@ -294,7 +294,7 @@ class ProductControllerMvcTest {
         UUID productId = UUID.randomUUID();
         CreateProductRequest request = new CreateProductRequest(
                 "SKU-001", "Test Product", new BigDecimal("99.99"),
-                "{\"color\":\"black\"}", "Test description"
+                "{\"color\":\"black\"}", "Characteristics","Test description"
         );
 
         Product savedProduct = new Product();
@@ -303,7 +303,7 @@ class ProductControllerMvcTest {
         savedProduct.setName(request.name());
         savedProduct.setPrice(request.price());
         savedProduct.setCharacteristics(request.characteristics());
-        savedProduct.setImages(new byte[0][]);
+        savedProduct.setImageUrl("http://some.url");
         savedProduct.setDescription(request.description());
 
         when(productService.createProduct(any(CreateProductRequest.class))).thenReturn(savedProduct);

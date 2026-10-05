@@ -27,4 +27,8 @@ public class ReservationService {
     public void updateStatusForProductIdsIn(UUID orderId, ReservationStatus newStatus, ReservationStatus currentStatus, Set<UUID> productIds) {
         reservationRepository.updateStatusForProductIdsIn(orderId, newStatus, currentStatus, productIds);
     }
+
+    public List<Reservation> findAllByOrderIdAndStatus(UUID orderId, ReservationStatus status) {
+        return reservationRepository.findAllByOrderIdAndStatus(orderId, status);
+    }
 }

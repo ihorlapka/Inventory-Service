@@ -28,7 +28,7 @@ public class Product {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "price", nullable = false)
+    @Column(name = "price", nullable = false, length = 15)
     private BigDecimal price;
 
     @JdbcTypeCode(SqlTypes.JSON)

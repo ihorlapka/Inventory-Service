@@ -5,12 +5,14 @@ import com.electronics.store.inventory_service.messaging.RabbitMqPublisher;
 import com.electronics.store.inventory_service.messaging.message.*;
 import com.electronics.store.inventory_service.persistence.model.Inventory;
 import com.electronics.store.inventory_service.persistence.model.OutboxEvent;
+import com.electronics.store.inventory_service.persistence.model.Product;
 import com.electronics.store.inventory_service.persistence.model.Reservation;
 import com.electronics.store.inventory_service.persistence.model.enums.EventType;
 import com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus;
 import com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus;
 import com.electronics.store.inventory_service.persistence.repositories.InventoryRepository;
 import com.electronics.store.inventory_service.persistence.repositories.OutboxEventRepository;
+import com.electronics.store.inventory_service.persistence.repositories.ProductRepository;
 import com.electronics.store.inventory_service.persistence.repositories.ReservationRepository;
 import com.electronics.store.outbox_event_publisher.OutboxEventHandler;
 import com.electronics.store.outbox_event_publisher.OutboxEventManager;
@@ -39,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static java.math.RoundingMode.HALF_UP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -81,6 +84,9 @@ class ReservationProcessorIntegrationTest {
     private ReservationRepository reservationRepository;
 
     @Autowired
+    private ProductRepository productRepository;
+
+    @Autowired
     private OutboxEventHandler<OutboxEvent> outboxEventHandler;
 
     @Autowired
@@ -100,8 +106,10 @@ class ReservationProcessorIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        productId1 = UUID.randomUUID();
-        productId2 = UUID.randomUUID();
+        Product product1 = new Product(productId1, "prod1-sku", "lap top", BigDecimal.valueOf(1200).setScale(6, HALF_UP), "{}", "http://some.laptop.url", "description");
+        Product product2 = new Product(productId2, "prod2-sku", "phone", BigDecimal.valueOf(550).setScale(6, HALF_UP), "{}", "http://some.phone.url", "description");
+        productId1 = productRepository.save(product1).getId();
+        productId2 = productRepository.save(product2).getId();
     }
 
     @AfterEach
@@ -109,6 +117,7 @@ class ReservationProcessorIntegrationTest {
         reservationRepository.deleteAll();
         outboxEventRepository.deleteAll();
         inventoryRepository.deleteAll();
+        productRepository.deleteAll();
     }
 
     private UUID newOrderId() {
@@ -302,8 +311,8 @@ class ReservationProcessorIntegrationTest {
 
     private MessageEvent createOrderEvent(UUID orderId, UUID productId1, int qty1, UUID productId2, int qty2) {
         Set<EventItem> items = new HashSet<>();
-        items.add(new EventItem(UUID.randomUUID(), productId1, "Product 1", qty1, new BigDecimal("50.00"), "http://example.com/p1"));
-        items.add(new EventItem(UUID.randomUUID(), productId2, "Product 2", qty2, new BigDecimal("75.00"), "http://example.com/p2"));
+        items.add(new EventItem(UUID.randomUUID(), productId1, qty1));
+        items.add(new EventItem(UUID.randomUUID(), productId2, qty2));
 
         OrderCreatedData orderData = new OrderCreatedData(UUID.randomUUID(), com.electronics.store.inventory_service.persistence.model.enums.Currency.USD,
                 new BigDecimal("275.00"), items);

@@ -31,6 +31,15 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID> 
                                                                @Param("status") ReservationStatus status,
                                                                @Param("productIds") Set<UUID> productIds);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT r FROM Reservation r
+            WHERE r.status = :status AND r.orderId = :orderId
+            ORDER BY r.productId
+            """)
+    List<Reservation> findAllByOrderIdAndStatus(@Param("orderId") UUID orderId,
+                                                @Param("status") ReservationStatus status);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Reservation r

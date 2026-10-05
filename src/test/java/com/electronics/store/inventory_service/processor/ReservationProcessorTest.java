@@ -92,10 +92,7 @@ class ReservationProcessorTest {
         return new EventItem(
                 id,
                 productId,
-                "Test Product",
-                quantity,
-                new BigDecimal("50.00"),
-                "http://example.com/product"
+                quantity
         );
     }
 

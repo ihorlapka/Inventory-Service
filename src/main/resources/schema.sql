@@ -22,7 +22,7 @@ CREATE TABLE products (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sku             VARCHAR(255)  NOT NULL UNIQUE,
     name            VARCHAR(255)  NOT NULL,
-    price           DECIMAL(9, 6) NOT NULL,
+    price           DECIMAL(12, 3) NOT NULL,
     characteristics JSONB         NOT NULL,
     image_url        VARCHAR(255),
     description     VARCHAR(255)  NOT NULL
@@ -42,7 +42,7 @@ CREATE TABLE reservations (
     amount     INTEGER            NOT NULL,
     status     reservation_status NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    released_at TIMESTAMP WITH TIME ZONE
+    released_at TIMESTAMP WITH TIME ZONE,
     UNIQUE (order_id, product_id)
 );
 

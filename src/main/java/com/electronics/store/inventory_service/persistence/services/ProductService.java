@@ -61,7 +61,7 @@ public class ProductService {
     }
 
     public List<Product> findByProductIdIn(Set<UUID> productIds) {
-        return productRepository.findByProductIdIn(productIds);
+        return productRepository.findByIdIn(productIds);
     }
 
     public static class ProductNotFoundException extends RuntimeException {
