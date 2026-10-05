@@ -18,6 +18,7 @@ import java.util.function.Function;
 
 import static com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus.RELEASED;
 import static com.electronics.store.inventory_service.persistence.model.enums.ReservationStatus.RESERVED;
+import static com.electronics.store.inventory_service.processor.ModificationState.*;
 import static java.time.OffsetDateTime.now;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -32,8 +33,8 @@ public class ReservationModifier {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateReservation(MessageEvent event, Set<EventItem> itemsToUpdate) {
-        final List<Reservation> reservations = reservationService.findAllByOrderIdAndStatus(event.orderId(), RESERVED);
-        final Map<UUID, Reservation> reservationByProductId = getReservationByProductId(reservations);
+        final Map<UUID, Reservation> reservationByProductId = reservationService.findAllByOrderIdAndStatus(event.orderId(), RESERVED).stream()
+                .collect(toMap(Reservation::getProductId, Function.identity()));
         final Set<ModifiedItem> allModifiedItems = getModifiedItems(itemsToUpdate, reservationByProductId);
         final Set<UUID> allProductIds = allModifiedItems.stream().map(ModifiedItem::itemId).collect(toSet());
         final Map<UUID, Inventory> inventoryByProductId = inventoryService.findInventoriesByProductIds(allProductIds).stream()
@@ -83,7 +84,7 @@ public class ReservationModifier {
     private Set<ModifiedItem> getModifiedItems(Set<EventItem> requestedItemsToUpdate, Map<UUID, Reservation> reservationByProductId) {
         final Set<ModifiedItem> addedAndUpdatedItems = requestedItemsToUpdate.stream()
                 .map(item -> {
-                    final ModificationState state = reservationByProductId.containsKey(item.itemId()) ? ModificationState.MODIFIED : ModificationState.NEW;
+                    final ModificationState state = reservationByProductId.containsKey(item.itemId()) ? MODIFIED : NEW;
                     return new ModifiedItem(item.itemId(), state, item.quantity());
                 })
                 .collect(toSet());
@@ -91,13 +92,9 @@ public class ReservationModifier {
         final Set<UUID> newItemIds = requestedItemsToUpdate.stream().map(EventItem::itemId).collect(toSet());
         final Set<ModifiedItem> removedItems = reservationByProductId.keySet().stream()
                 .filter(itemId -> !newItemIds.contains(itemId))
-                .map(itemId -> new ModifiedItem(itemId, ModificationState.DELETED, 0))
+                .map(itemId -> new ModifiedItem(itemId, DELETED, 0))
                 .collect(toSet());
 
         return Sets.union(addedAndUpdatedItems, removedItems);
-    }
-
-    private Map<UUID, Reservation> getReservationByProductId(List<Reservation> reservations) {
-        return reservations.stream().collect(toMap(Reservation::getProductId, Function.identity()));
     }
 }
