@@ -41,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+import static com.electronics.store.inventory_service.persistence.model.enums.Currency.USD;
 import static com.electronics.store.inventory_service.persistence.model.enums.OrderStatus.CANCELLED;
 import static com.electronics.store.inventory_service.persistence.model.enums.OrderStatus.MODIFIED;
 import static java.math.RoundingMode.HALF_UP;
@@ -304,15 +305,15 @@ class ReservationProcessorIntegrationTest {
     }
 
     private void sendOrderCreatedEvent(MessageEvent event) {
-        sendOrderEvent(event, "orders.created");
+        sendOrderEvent(event, "order.created");
     }
 
     private void sendOrderCancelledEvent(MessageEvent event) {
-        sendOrderEvent(event, "orders.cancelled");
+        sendOrderEvent(event, "order.cancelled");
     }
 
     private void sendOrderModifiedEvent(MessageEvent event) {
-        sendOrderEvent(event, "orders.modified");
+        sendOrderEvent(event, "order.modified");
     }
 
     private void createInventory(UUID productId, int availableQty, int reservedQty) {
@@ -328,8 +329,7 @@ class ReservationProcessorIntegrationTest {
         items.add(new EventItem(UUID.randomUUID(), productId1, qty1));
         items.add(new EventItem(UUID.randomUUID(), productId2, qty2));
 
-        OrderCreatedData orderData = new OrderCreatedData(UUID.randomUUID(), com.electronics.store.inventory_service.persistence.model.enums.Currency.USD,
-                new BigDecimal("275.00"), items);
+        OrderCreatedData orderData = new OrderCreatedData(UUID.randomUUID(), USD, items);
 
         return new MessageEvent(
                 UUID.randomUUID(),
@@ -347,8 +347,7 @@ class ReservationProcessorIntegrationTest {
         items.add(new EventItem(UUID.randomUUID(), productId2, qty2));
         items.add(new EventItem(UUID.randomUUID(), productId3, qty3));
 
-        OrderCreatedData orderData = new OrderCreatedData(UUID.randomUUID(), com.electronics.store.inventory_service.persistence.model.enums.Currency.USD,
-                new BigDecimal("275.00"), items);
+        OrderCreatedData orderData = new OrderCreatedData(UUID.randomUUID(), USD, items);
 
         return new MessageEvent(
                 UUID.randomUUID(),
@@ -360,8 +359,8 @@ class ReservationProcessorIntegrationTest {
         );
     }
 
-    private MessageEvent createOrderCancelledEvent(UUID orderId, Set<UUID> productIds) {
-        OrderCancelledData orderData = new OrderCancelledData(productIds, "Customer requested cancellation");
+    private MessageEvent createOrderCancelledEvent(UUID orderId) {
+        OrderCancelledData orderData = new OrderCancelledData("Customer requested cancellation");
         return new MessageEvent(
                 UUID.randomUUID(),
                 EventType.ORDER_CANCELLED,
@@ -417,7 +416,7 @@ class ReservationProcessorIntegrationTest {
             }
         });
 
-        MessageEvent cancelEvent = createOrderCancelledEvent(orderId, Set.of(productId1, productId2));
+        MessageEvent cancelEvent = createOrderCancelledEvent(orderId);
         sendOrderCancelledEvent(cancelEvent);
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
@@ -469,7 +468,7 @@ class ReservationProcessorIntegrationTest {
         });
 
         UUID productId3 = UUID.randomUUID();
-        MessageEvent cancelEvent = createOrderCancelledEvent(orderId, Set.of(productId1, productId2, productId3));
+        MessageEvent cancelEvent = createOrderCancelledEvent(orderId);
         sendOrderCancelledEvent(cancelEvent);
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {

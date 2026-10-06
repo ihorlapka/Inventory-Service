@@ -106,17 +106,17 @@ public class ReservationProcessor {
     @Transactional
     public void processOrderCancelled(MessageEvent event) {
         final EventData eventData = event.eventData();
-        if (!(eventData instanceof OrderCancelledData orderCancelledData)) {
+        if (!(eventData instanceof OrderCancelledData)) {
             log.error("EventData is not of type OrderCancelledData {}", event);
             return;
         }
-        final List<Reservation> reservations = reservationService.findAllByOrderIdAndStatusAndProductIdsIn(event.orderId(), RESERVED, orderCancelledData.productIds());
+        final List<Reservation> reservations = reservationService.findAllByOrderIdAndStatus(event.orderId(), RESERVED);
         if (reservations.isEmpty()) {
-            log.warn("No reservations found in db for orderId: {}, requested items {}!", event.orderId(), orderCancelledData.productIds());
+            log.warn("No reservations found in db for orderId: {}", event.orderId());
             return;
         }
-        final List<Inventory> inventories = inventoryService.findInventoriesByProductIds(orderCancelledData.productIds());
         final Map<UUID, Reservation> reservationByProductId = getReservationByProductId(reservations);
+        final List<Inventory> inventories = inventoryService.findInventoriesByProductIds(reservationByProductId.keySet());
         for (Inventory inventory : inventories) {
             final Reservation reservation = reservationByProductId.get(inventory.getProductId());
             if (reservation == null) {

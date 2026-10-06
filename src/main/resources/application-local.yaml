@@ -1,3 +1,7 @@
+server:
+  servlet:
+    context-path: /inventory
+  port: 8082
 spring:
   application:
     name: inventory_service
@@ -35,13 +39,13 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: guest
-    password: guest
+    username: ihor
+    password: root
 rabbit:
   orders:
     exchange.name: es.order.events.exchange
     queue.name: es.order.events.queue
-    routing.key: orders.#
+    routing.key: order.#
   inventory:
     exchange.name: es.inventory.events.exchange
     success.routing.key: inventory.reserved

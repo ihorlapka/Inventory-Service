@@ -85,7 +85,6 @@ class ReservationProcessorTest {
         OrderCreatedData orderData = new OrderCreatedData(
                 UUID.randomUUID(),
                 Currency.USD,
-                new BigDecimal("100.00"),
                 items
         );
         return new MessageEvent(
@@ -308,8 +307,8 @@ class ReservationProcessorTest {
         assertEquals(0, reservations.getFirst().getAmount());
     }
 
-    private MessageEvent createOrderCancelledEvent(UUID eventId, Set<UUID> productIds) {
-        OrderCancelledData orderData = new OrderCancelledData(productIds, "Customer requested cancellation");
+    private MessageEvent createOrderCancelledEvent(UUID eventId) {
+        OrderCancelledData orderData = new OrderCancelledData("Customer requested cancellation");
         return new MessageEvent(
                 eventId,
                 EventType.ORDER_CANCELLED,
@@ -336,11 +335,11 @@ class ReservationProcessorTest {
     void processOrderCancelled_successfulRelease() {
         UUID eventId = UUID.randomUUID();
         Set<UUID> productIds = Set.of(productId1, productId2);
-        MessageEvent event = createOrderCancelledEvent(eventId, productIds);
+        MessageEvent event = createOrderCancelledEvent(eventId);
 
         Reservation res1 = new Reservation(UUID.randomUUID(), orderId, productId1, 2, ReservationStatus.RESERVED, now.minusHours(1), null);
         Reservation res2 = new Reservation(UUID.randomUUID(), orderId, productId2, 3, ReservationStatus.RESERVED, now.minusHours(1), null);
-        when(reservationService.findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds))
+        when(reservationService.findAllByOrderIdAndStatus(orderId, ReservationStatus.RESERVED))
                 .thenReturn(List.of(res1, res2));
 
         Inventory inv1 = createInventory(productId1, 8, 2);
@@ -350,7 +349,7 @@ class ReservationProcessorTest {
 
         reservationProcessor.processOrderCancelled(event);
 
-        verify(reservationService).findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds);
+        verify(reservationService).findAllByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
         verify(inventoryService).findInventoriesByProductIds(productIds);
 
         assertEquals(ReservationStatus.RELEASED, res1.getStatus());
@@ -368,36 +367,13 @@ class ReservationProcessorTest {
     void processOrderCancelled_noReservationsFound() {
         UUID eventId = UUID.randomUUID();
         Set<UUID> productIds = Set.of(productId1, productId2);
-        MessageEvent event = createOrderCancelledEvent(eventId, productIds);
+        MessageEvent event = createOrderCancelledEvent(eventId);
 
-        when(reservationService.findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds)).thenReturn(List.of());
+        when(reservationService.findAllByOrderIdAndStatus(orderId, ReservationStatus.RESERVED)).thenReturn(List.of());
         reservationProcessor.processOrderCancelled(event);
 
-        verify(reservationService).findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds);
+        verify(reservationService).findAllByOrderIdAndStatus(orderId, ReservationStatus.RESERVED);
         verify(inventoryService, never()).findInventoriesByProductIds(anySet());
-    }
-
-    @Test
-    void processOrderCancelled_partialReservationsFound() {
-        UUID eventId = UUID.randomUUID();
-        Set<UUID> productIds = Set.of(productId1, productId2, UUID.randomUUID());
-        MessageEvent event = createOrderCancelledEvent(eventId, productIds);
-
-        Reservation res1 = new Reservation(UUID.randomUUID(), orderId, productId1, 2, ReservationStatus.RESERVED, now.minusHours(1), null);
-        when(reservationService.findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds)).thenReturn(List.of(res1));
-
-        Inventory inv1 = createInventory(productId1, 8, 2);
-        Inventory inv2 = createInventory(productId2, 10, 0);
-        when(inventoryService.findInventoriesByProductIds(productIds)).thenReturn(List.of(inv1, inv2));
-
-        reservationProcessor.processOrderCancelled(event);
-
-        verify(reservationService).findAllByOrderIdAndStatusAndProductIdsIn(orderId, ReservationStatus.RESERVED, productIds);
-        verify(inventoryService).findInventoriesByProductIds(productIds);
-
-        assertEquals(ReservationStatus.RELEASED, res1.getStatus());
-        assertEquals(10, inv1.getAvailableQuantity());
-        assertEquals(0, inv1.getReservedQuantity());
     }
 
     @Test
@@ -409,12 +385,12 @@ class ReservationProcessorTest {
                 orderId,
                 OrderStatus.CANCELLED,
                 now,
-                new OrderCreatedData(UUID.randomUUID(), Currency.USD, BigDecimal.TEN, Set.of())
+                new OrderCreatedData(UUID.randomUUID(), Currency.USD, Set.of())
         );
 
         reservationProcessor.processOrderCancelled(event);
 
-        verify(reservationService, never()).findAllByOrderIdAndStatusAndProductIdsIn(any(), any(), any());
+        verify(reservationService, never()).findAllByOrderIdAndStatus(any(), any());
         verify(inventoryService, never()).findInventoriesByProductIds(anySet());
     }
 
@@ -479,7 +455,7 @@ class ReservationProcessorTest {
                 orderId,
                 OrderStatus.PENDING,
                 now,
-                new OrderCreatedData(UUID.randomUUID(), Currency.USD, BigDecimal.TEN, Set.of())
+                new OrderCreatedData(UUID.randomUUID(), Currency.USD, Set.of())
         );
 
         reservationProcessor.processOrderModified(event);
