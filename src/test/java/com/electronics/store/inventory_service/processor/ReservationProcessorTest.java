@@ -17,6 +17,8 @@ import com.electronics.store.inventory_service.persistence.services.ReservationS
 import com.electronics.store.inventory_service.messaging.message.OrderCancelledData;
 import com.electronics.store.inventory_service.messaging.message.OrderModifiedData;
 import com.electronics.store.outbox_event_publisher.PublishmentTriggerEvent;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -56,6 +59,9 @@ class ReservationProcessorTest {
     @Mock
     private ReservationModifier reservationModifier;
 
+    @Mock
+    private ReservationMetrics reservationMetrics;
+
     @InjectMocks
     private ReservationProcessor reservationProcessor;
 
@@ -79,6 +85,25 @@ class ReservationProcessorTest {
         productId1 = UUID.randomUUID();
         productId2 = UUID.randomUUID();
         now = OffsetDateTime.now();
+
+        Mockito.lenient().when(reservationMetrics.getOrderCreatedProcessed()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderCreatedFailedInvalidEventData()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderCreatedFailedProductNotFound()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderCreatedFailedInsufficientStock()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderCreatedFailedException()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderCancelledProcessed()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderCancelledFailed()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderModifiedProcessed()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOrderModifiedFailed()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getReservationsCreated()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getReservationsReleased()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getReservationsModified()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOutboxEventsCreated()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOutboxEventsPublished()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.getOutboxEventsFailed()).thenReturn(Mockito.mock(Counter.class));
+        Mockito.lenient().when(reservationMetrics.startOrderCreatedTimer()).thenReturn(Timer.start());
+        Mockito.lenient().when(reservationMetrics.startOrderCancelledTimer()).thenReturn(Timer.start());
+        Mockito.lenient().when(reservationMetrics.startOrderModifiedTimer()).thenReturn(Timer.start());
     }
 
     private MessageEvent createOrderEvent(UUID eventId, Set<EventItem> items) {

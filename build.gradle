@@ -26,7 +26,7 @@ repositories {
 }
 
 dependencies {
-	implementation 'com.electronics.store.outbox_event_publisher:outbox-event-publisher:0.0.4-SNAPSHOT'
+	implementation 'com.electronics.store.outbox_event_publisher:outbox-event-publisher:0.0.5-SNAPSHOT'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-amqp'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

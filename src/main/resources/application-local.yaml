@@ -2,6 +2,26 @@ server:
   servlet:
     context-path: /inventory
   port: 8082
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    enable:
+      process: true
+      jvm: true
+      system: true
+      rabbitmq: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 spring:
   application:
     name: inventory_service
@@ -41,6 +61,10 @@ spring:
     port: 5672
     username: ihor
     password: root
+    listener:
+      simple:
+        metrics:
+          enabled: true
 rabbit:
   orders:
     exchange.name: es.order.events.exchange
@@ -53,3 +77,7 @@ rabbit:
 outbox:
   timeout.after.failure.ms: 5000
   events.batch.size: 100
+inventory:
+  health:
+    pending-outbox-events-threshold: 1000
+    stale-outbox-events-threshold-minutes: 30

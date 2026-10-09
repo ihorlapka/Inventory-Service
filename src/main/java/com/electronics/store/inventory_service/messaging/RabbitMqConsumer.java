@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class RabbitMqConsumer {
 
     private final ReservationProcessor reservationProcessor;
+    private final RabbitMqMetrics rabbitMqMetrics;
 
     @RabbitListener(id = "orders-created",
             queues = "#{@rabbitMqProperties.getOrdersQueueName()}",
@@ -29,12 +30,13 @@ public class RabbitMqConsumer {
             log.info("Received: {}, msgId: {}, correlationId: {}, sentTime: {}", event, eventId, orderId, sentTimestamp);
             switch (event.eventType()) {
                 case ORDER_CREATED -> reservationProcessor.processOrderCreated(event);
-                case ORDER_CANCELLED ->  reservationProcessor.processOrderCancelled(event);
-                case ORDER_MODIFIED ->  reservationProcessor.processOrderModified(event);
+                case ORDER_CANCELLED -> reservationProcessor.processOrderCancelled(event);
+                case ORDER_MODIFIED -> reservationProcessor.processOrderModified(event);
             }
-
+            rabbitMqMetrics.getMessagesProcessedSuccess().increment();
         } catch (NullPointerException | IllegalArgumentException | IllegalStateException | ArrayIndexOutOfBoundsException e) {
-            throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e); // straight to Dead Letter Queue
+            rabbitMqMetrics.getInvalidMessagesTotal().increment();
+            throw new AmqpRejectAndDontRequeueException("Invalid event " + event, e);
         }
     }
 }

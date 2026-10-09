@@ -49,3 +49,11 @@ rabbit:
 outbox:
   timeout.after.failure.ms: 5000
   events.batch.size: 100
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always

@@ -1,6 +1,7 @@
 package com.electronics.store.inventory_service.persistence.repositories;
 
 import com.electronics.store.inventory_service.persistence.model.OutboxEvent;
+import com.electronics.store.inventory_service.persistence.model.enums.PublishmentStatus;
 import jakarta.persistence.LockModeType;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,4 +62,15 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
     List<OutboxEvent> findAllByOrderId(UUID orderId);
 
     List<OutboxEvent> findAllByOrderIdIn(List<UUID> orderIds);
+
+    long countByStatus(PublishmentStatus status);
+
+    @Query(value = """
+            SELECT * FROM outbox_events
+            WHERE status = 'NEW'
+            AND created_at < :threshold
+            ORDER BY created_at
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<OutboxEvent> findStaleEvents(@Param("threshold") OffsetDateTime threshold, @Param("limit") int limit);
 }

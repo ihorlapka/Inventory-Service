@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
 
+import static io.micrometer.core.instrument.Timer.Sample;
 import static com.electronics.store.inventory_service.persistence.model.enums.EventType.INVENTORY_RESERVED;
 
 @Slf4j
@@ -27,11 +28,12 @@ public class RabbitMqPublisher implements EventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
     private final RabbitMqProperties rabbitProps;
-
+    private final RabbitMqMetrics rabbitMqMetrics;
 
     @Override
     public void publish(UUID orderId, UUID eventId, String eventTypeName, String payload) {
         final String routingKey = getRoutingKey(eventTypeName);
+        final Sample publishmentStart = rabbitMqMetrics.startPublishTimer();
         try {
             log.info("Sending message for orderId: {}, {}", orderId, payload);
             final MessageProperties properties = MessagePropertiesBuilder.newInstance()
@@ -47,6 +49,8 @@ public class RabbitMqPublisher implements EventPublisher {
         } catch (AmqpException e) {
             log.error("Failed to send message to exchange={}, routingKey={}", rabbitProps.getInventoryExchange(), routingKey, e);
             throw e;
+        } finally {
+            rabbitMqMetrics.recordMessagePublishDuration(publishmentStart);
         }
     }
 
